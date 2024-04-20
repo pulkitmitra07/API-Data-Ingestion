@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS CloudFormation Template for ingesting data from OpenWeatherMap API into S3 using Lambda, EventBridge, and S3
+Parameters:
+  S3BucketName:
+    Type: String
+    Description: Name of the S3 bucket to store weather data
+    Default: weather-data-bucket-unique
+  LambdaFunctionName:
+    Type: String
+    Description: Name of the Lambda function for ingesting data
+    Default: WeatherDataIngestLambda-unique
+  LambdaExecutionRoleName:
+    Type: String
+    Description: Name of the IAM role for Lambda execution
+    Default: WeatherDataIngestLambdaRole-unique
+  ApiEndpoint:
+    Type: String
+    Description: The endpoint of the OpenWeatherMap API to fetch weather data from
+    Default: https://api.openweathermap.org/data/2.5/weather
+  ApiKey:
+    Type: String
+    Description: API key for accessing the OpenWeatherMap API
+    Default: 15c5c3864f82a861ba3bf935958a1764
+  AirVisualApiKey:
+    Type: String
+    Description: AirVisual API key for data enrichment
+    Default: 46a259b9-0208-4943-9a5f-96f9350ccf26
+Resources:
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref LambdaExecutionRoleName
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: LambdaExecutionPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: arn:aws:logs:*:*:*
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                Resource: !Sub arn:aws:s3:::${S3BucketName}/*
+  WeatherDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+      AccessControl: Private
+  WeatherDataEventRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: WeatherDataEventRule-unique
+      ScheduleExpression: rate(1 hour)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt LambdaFunction.Arn
+          Id: TargetLambda-unique
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref LambdaFunctionName
+      Handler: index.handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.8
+      Timeout: 10
+      Environment:
+        Variables:
+          S3_BUCKET_NAME: !Ref S3BucketName
+          API_ENDPOINT: !Ref ApiEndpoint
+          API_KEY: !Ref ApiKey
+          AIRVISUAL_API_KEY: !Ref AirVisualApiKey
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import requests
+          from datetime import datetime
+          s3 = boto3.client('s3')
+          bucket_name = !Ref S3BucketName
+          api_endpoint = !Ref ApiEndpoint
+          api_key = !Ref ApiKey
+          def handler(event, context):
+              try:
+                  response = requests.get(api_endpoint, params={'appid': api_key})
+                  response.raise_for_status()
+                  data = response.json()
+                  object_key = f"weather_{datetime.utcnow().isoformat()}.json"
+                  s3.put_object(
+                      Body=json.dumps(data),
+                      Bucket=bucket_name,
+                      Key=object_key,
+                      ContentType="application/json"
+                  )
+                  return {
+                      'statusCode': 200,
+                      'body': json.dumps('Weather data ingested successfully')
+                  }
+              except Exception as e:
+                  print(f'Error fetching or storing weather data: {e}')
+                  raise e
+Outputs:
+  LambdaFunctionArn:
+    Description: ARN of the Lambda function for ingesting weather data
+    Value: !GetAtt LambdaFunction.Arn
