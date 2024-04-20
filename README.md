@@ -12,6 +12,11 @@ This repository presents the solution for the Weather Data Ingestion Challenge. 
 # Deployment Steps
 - Clone Repository: Clone this repository to your local environment or fork it to your own GitHub account.
 - Deploy CloudFormation Stack: Use the AWS CLI or AWS Console to deploy the CloudFormation stack using the weather_data_ingestion_template.yaml file.
+-  Once the stack is created, go to the AWS Lambda console:
+    Navigate to the Lambda function created by the CloudFormation stack (WeatherDataIngestLambda-unique).
+    Click on "Upload from" and choose "Zip file" option.
+    Select the Lambda function code zip file (WeatherDataIngestLambda-unique.zip) containing your Lambda function code and dependencies.
+    Click on "Save" to update the Lambda function with the new code and dependencies.
 - Test Lambda Function: After deployment, test the Lambda function using the AWS Lambda console. Configure a test event with the desired location data (e.g., Sydney).
 - Verify Data Ingestion: Check the specified S3 bucket for the ingested weather data files and transformed data files.
 
