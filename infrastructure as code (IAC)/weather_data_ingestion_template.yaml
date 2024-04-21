@@ -65,8 +65,25 @@ Resources:
       ScheduleExpression: rate(1 hour)
       State: ENABLED
       Targets:
-        - Arn: !GetAtt LambdaFunction.Arn
-          Id: TargetLambda-unique
+        - Id: Idead8b0ce-2745-4bb1-9af7-24d1e80390cc
+          Arn: arn:aws:lambda:ap-southeast-2:590183757017:function:WeatherDataIngestLambda-unique
+          InputTransformer:
+            InputPathsMap:
+              openweather_city: $.detail.location.city
+              airvisual_city: $.detail.location.city
+              airvisual_state: $.detail.location.state
+              airvisual_country: $.detail.location.country
+            InputTemplate: |-
+              {
+                "openweather": {
+                  "city": "Sydney"
+                },
+                "airvisual": {
+                  "city": "Sydney",
+                  "state": "New South Wales",
+                  "country": "Australia"
+                }
+              }
   LambdaFunction:
     Type: AWS::Lambda::Function
     Properties:
